@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CodeScope — Login / Register</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <style>
+    body { min-height: 100vh; }
+    .auth-page { min-height: 100vh; display: grid; grid-template-columns: 1fr 1fr; }
+    .auth-left {
+      background: var(--surface); border-right: 1px solid var(--border2);
+      display: flex; flex-direction: column; justify-content: center;
+      padding: 60px; position: relative; overflow: hidden;
+    }
+    .auth-left::before {
+      content: ''; position: absolute; inset: 0;
+      background: radial-gradient(ellipse 80% 60% at 30% 50%, rgba(99,102,241,0.1) 0%, transparent 70%);
+    }
+    .auth-right {
+      display: flex; align-items: center; justify-content: center;
+      padding: 60px 40px; background: var(--bg2);
+    }
+    .auth-box { width: 100%; max-width: 400px; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .tab-indicator {
+      position: absolute; bottom: 0; left: 0; right: 0; height: 2px;
+      background: var(--grad); border-radius: 2px;
+      transition: transform 0.25s; 
+    }
+    .auth-tabs { position: relative; }
+    .error-banner {
+      padding: 12px 16px; border-radius: var(--radius-sm);
+      background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3);
+      color: #ef4444; font-size: 0.85rem; margin-bottom: 16px; display: none;
+    }
+    .error-banner.show { display: block; }
+    .success-banner {
+      padding: 12px 16px; border-radius: var(--radius-sm);
+      background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.3);
+      color: #10b981; font-size: 0.85rem; margin-bottom: 16px; display: none;
+    }
+    .success-banner.show { display: block; }
+    .password-hint { font-size: 0.78rem; color: var(--text-muted); margin-top: 4px; }
+    @media (max-width: 900px) {
+      .auth-page { grid-template-columns: 1fr; }
+      .auth-left { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="auth-page">
+  <!-- ── Left Branding ──────────────────────────────────────────────── -->
+  <div class="auth-left">
+    <div style="position:relative;z-index:1">
+      <a href="index.html" class="nav-logo" style="margin-bottom:56px;display:flex">
+        <div class="logo-icon">⚡</div>
+        <span style="font-size:1.3rem">Code<strong>Scope</strong></span>
+      </a>
+
+      <h2 style="font-size:1.8rem;font-weight:700;margin-bottom:12px;line-height:1.2">
+        AI code review,<br><span style="background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">without the wait</span>
+      </h2>
+      <p style="color:var(--text-muted);margin-bottom:48px;font-size:0.9rem;line-height:1.6">
+        Detect bugs, security vulnerabilities, and performance issues using GPT-4o-mini — enhanced with a RAG pipeline that understands your codebase context.
+      </p>
+
+      <div class="auth-feature">
+        <div class="auth-feature-icon">🔍</div>
+        <div>
+          <h4>RAG-Augmented Analysis</h4>
+          <p>Code embeddings matched against OWASP Top 10, SOLID principles, and language best practices</p>
+        </div>
+      </div>
+      <div class="auth-feature">
+        <div class="auth-feature-icon">⚡</div>
+        <div>
+          <h4>Results in Seconds</h4>
+          <p>Full analysis with severity ratings, line numbers, and actionable fix suggestions</p>
+        </div>
+      </div>
+      <div class="auth-feature">
+        <div class="auth-feature-icon">📊</div>
+        <div>
+          <h4>Track Your Progress</h4>
+          <p>History of all analyses with quality score trends and language breakdown dashboard</p>
+        </div>
+      </div>
+
+      <div style="margin-top:48px;padding-top:24px;border-top:1px solid var(--border2)">
+        <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:10px">Supports</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <span style="font-size:1.3rem" title="JavaScript">🟨</span>
+          <span style="font-size:1.3rem" title="TypeScript">🔷</span>
+          <span style="font-size:1.3rem" title="Python">🐍</span>
+          <span style="font-size:1.3rem" title="Java">☕</span>
+          <span style="font-size:1.3rem" title="Go">🐹</span>
+          <span style="font-size:1.3rem" title="Rust">🦀</span>
+          <span style="font-size:1.3rem" title="C++">⚙️</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Right Auth Form ────────────────────────────────────────────── -->
+  <div class="auth-right">
+    <div class="auth-box fade-in">
+      <a href="index.html" class="nav-logo" style="margin-bottom:32px;display:flex">
+        <div class="logo-icon" style="width:28px;height:28px;font-size:14px">⚡</div>
+        <span>Code<strong>Scope</strong></span>
+      </a>
+
+      <div class="auth-tabs" style="display:flex;background:var(--bg);border-radius:var(--radius-sm);padding:4px;margin-bottom:28px;position:relative">
+        <button class="auth-tab active" id="tab-login" onclick="switchTab('login')">Sign In</button>
+        <button class="auth-tab" id="tab-register" onclick="switchTab('register')">Create Account</button>
+      </div>
+
+      <div id="error-msg" class="error-banner"></div>
+      <div id="success-msg" class="success-banner"></div>
+
+      <!-- Login Form -->
+      <form id="login-form" onsubmit="handleLogin(event)">
+        <div class="form-group">
+          <label class="form-label">Email</label>
+          <input type="email" id="login-email" class="form-input" placeholder="you@example.com" required autocomplete="email" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Password</label>
+          <input type="password" id="login-password" class="form-input" placeholder="••••••••" required autocomplete="current-password" />
+        </div>
+        <button type="submit" id="login-btn" class="btn btn-primary" style="width:100%;justify-content:center;margin-top:8px">
+          Sign In
+        </button>
+        <p style="text-align:center;margin-top:18px;font-size:0.85rem;color:var(--text-muted)">
+          Don't have an account? <a href="#" onclick="switchTab('register');return false" style="color:var(--primary2)">Create one free →</a>
+        </p>
+      </form>
+
+      <!-- Register Form -->
+      <form id="register-form" style="display:none" onsubmit="handleRegister(event)">
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Username</label>
+            <input type="text" id="reg-username" class="form-input" placeholder="pranav" required minlength="3" maxlength="30" autocomplete="username" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Email</label>
+            <input type="email" id="reg-email" class="form-input" placeholder="you@example.com" required autocomplete="email" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Password</label>
+          <input type="password" id="reg-password" class="form-input" placeholder="Min. 8 characters" required minlength="8" autocomplete="new-password" />
+          <div class="password-hint">At least 8 characters</div>
+        </div>
+        <button type="submit" id="register-btn" class="btn btn-primary" style="width:100%;justify-content:center;margin-top:8px">
+          Create Account
+        </button>
+        <p style="text-align:center;margin-top:18px;font-size:0.85rem;color:var(--text-muted)">
+          Already have an account? <a href="#" onclick="switchTab('login');return false" style="color:var(--primary2)">Sign in →</a>
+        </p>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script src="js/utils.js"></script>
+<script>
+  // Read mode from URL
+  const params = new URLSearchParams(location.search);
+  if (params.get('mode') === 'register') switchTab('register');
+
+  // Redirect if already logged in
+  if (Auth.isLoggedIn()) window.location.href = 'analyzer.html';
+
+  function switchTab(mode) {
+    const isLogin = mode === 'login';
+    document.getElementById('tab-login').classList.toggle('active', isLogin);
+    document.getElementById('tab-register').classList.toggle('active', !isLogin);
+    document.getElementById('login-form').style.display = isLogin ? '' : 'none';
+    document.getElementById('register-form').style.display = isLogin ? 'none' : '';
+    clearMessages();
+  }
+
+  function showError(msg) {
+    const el = document.getElementById('error-msg');
+    el.textContent = msg; el.classList.add('show');
+    document.getElementById('success-msg').classList.remove('show');
+  }
+
+  function showSuccess(msg) {
+    const el = document.getElementById('success-msg');
+    el.textContent = msg; el.classList.add('show');
+    document.getElementById('error-msg').classList.remove('show');
+  }
+
+  function clearMessages() {
+    document.getElementById('error-msg').classList.remove('show');
+    document.getElementById('success-msg').classList.remove('show');
+  }
+
+  async function handleLogin(e) {
+    e.preventDefault();
+    const btn = document.getElementById('login-btn');
+    const email = document.getElementById('login-email').value.trim();
+    const password = document.getElementById('login-password').value;
+    clearMessages();
+    setLoading(btn, true, 'Signing in...');
+    try {
+      const data = await gql(`
+        mutation Login($email: String!, $password: String!) {
+          login(email: $email, password: $password) {
+            token
+            user { id username email analysisCount role createdAt }
+          }
+        }
+      `, { email, password });
+      Auth.setSession(data.login.token, data.login.user);
+      showSuccess('Welcome back! Redirecting...');
+      setTimeout(() => window.location.href = 'analyzer.html', 800);
+    } catch (err) {
+      showError(err.message || 'Login failed. Please check your credentials.');
+    } finally {
+      setLoading(btn, false, 'Sign In');
+    }
+  }
+
+  async function handleRegister(e) {
+    e.preventDefault();
+    const btn = document.getElementById('register-btn');
+    const username = document.getElementById('reg-username').value.trim();
+    const email = document.getElementById('reg-email').value.trim();
+    const password = document.getElementById('reg-password').value;
+    clearMessages();
+    setLoading(btn, true, 'Creating account...');
+    try {
+      const data = await gql(`
+        mutation Register($username: String!, $email: String!, $password: String!) {
+          register(username: $username, email: $email, password: $password) {
+            token
+            user { id username email analysisCount role createdAt }
+          }
+        }
+      `, { username, email, password });
+      Auth.setSession(data.register.token, data.register.user);
+      showSuccess('Account created! Redirecting to analyzer...');
+      setTimeout(() => window.location.href = 'analyzer.html', 800);
+    } catch (err) {
+      showError(err.message || 'Registration failed. Please try again.');
+    } finally {
+      setLoading(btn, false, 'Create Account');
+    }
+  }
+</script>
+</body>
+</html>

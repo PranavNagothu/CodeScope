@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CodeScope — AI-Powered Code Analysis Platform</title>
+  <meta name="description" content="CodeScope uses OpenAI GPT-4o-mini + RAG to automatically detect bugs, security vulnerabilities, performance issues, and style violations in your code — in seconds." />
+  <link rel="stylesheet" href="css/styles.css" />
+  <style>
+    .hero-wrap { background: linear-gradient(180deg, var(--bg) 0%, var(--bg2) 100%); position: relative; z-index: 1; }
+    .section-divider { height: 1px; background: linear-gradient(90deg, transparent, var(--border), transparent); margin: 0 2rem; }
+    .gradient-text { background: var(--grad); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+    .lang-pills { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+    .lang-pill { padding: 4px 12px; border-radius: 100px; background: var(--surface2); border: 1px solid var(--border2); font-size: 0.78rem; color: var(--text-muted); font-family: var(--mono); }
+    .demo-section { background: var(--surface); border-radius: var(--radius-lg); border: 1px solid var(--border); padding: 32px; margin-top: 60px; }
+    .demo-tabs { display: flex; gap: 8px; margin-bottom: 24px; }
+    .demo-tab { padding: 7px 18px; border-radius: var(--radius-sm); border: 1px solid var(--border2); background: none; color: var(--text-muted); font-size: 0.85rem; font-weight: 500; cursor: pointer; transition: all 0.2s; }
+    .demo-tab.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+    .demo-example { display: none; }
+    .demo-example.active { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+    .demo-code { font-family: var(--mono); font-size: 0.82rem; background: #060d1e; border-radius: var(--radius); padding: 20px; color: #94a3b8; border: 1px solid rgba(255,255,255,0.06); white-space: pre; overflow-x: auto; }
+    .demo-results { display: flex; flex-direction: column; gap: 10px; }
+    @media (max-width: 700px) { .demo-example.active { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+
+<!-- ── Navbar ──────────────────────────────────────────────────────────────── -->
+<nav class="navbar">
+  <a href="index.html" class="nav-logo">
+    <div class="logo-icon">⚡</div>
+    <span>Code<strong>Scope</strong></span>
+  </a>
+  <div class="nav-links">
+    <a href="#features">Features</a>
+    <a href="#how-it-works">How It Works</a>
+    <a href="#demo">Live Demo</a>
+    <a href="https://github.com/PranavNagothu/codescope" target="_blank">GitHub</a>
+  </div>
+  <div id="nav-user"></div>
+</nav>
+
+<!-- ── Hero ───────────────────────────────────────────────────────────────── -->
+<main>
+<div class="hero-wrap">
+<section class="hero">
+  <div class="hero-left fade-in">
+    <div class="hero-badge">RAG-Powered &nbsp;·&nbsp; GPT-4o-mini &nbsp;·&nbsp; 7 Languages</div>
+    <h1>Code Reviews That<br><span>Actually Get It Right</span></h1>
+    <p>CodeScope combines OpenAI GPT-4o-mini with a Retrieval-Augmented Generation pipeline to catch bugs, security holes, and performance issues — with OWASP and SOLID context baked in.</p>
+    <div class="hero-cta">
+      <a href="auth.html?mode=register" class="btn btn-primary">Start Analyzing Free &nbsp;→</a>
+      <a href="#demo" class="btn btn-ghost">See a Demo</a>
+    </div>
+    <div class="hero-stats">
+      <div class="hero-stat"><div class="num">7</div><div class="lbl">Languages</div></div>
+      <div class="hero-stat"><div class="num">5</div><div class="lbl">Issue Types</div></div>
+      <div class="hero-stat"><div class="num">12+</div><div class="lbl">KB Entries</div></div>
+      <div class="hero-stat"><div class="num">RAG</div><div class="lbl">Augmented</div></div>
+    </div>
+  </div>
+
+  <div class="hero-right fade-in" style="animation-delay:0.15s">
+    <div class="terminal">
+      <div class="terminal-header">
+        <span class="dot dot-red"></span>
+        <span class="dot dot-yellow"></span>
+        <span class="dot dot-green"></span>
+        <span class="terminal-title">codescope — analysis</span>
+      </div>
+      <div class="terminal-body" id="terminal-body">
+        <div class="code-line"><span class="code-cm">// JavaScript · Login Controller</span></div>
+        <div class="code-line"><span class="code-kw">function</span> <span class="code-fn">login</span>(user, pass) {</div>
+        <div class="code-line">&nbsp;&nbsp;<span class="code-kw">const</span> q = <span class="code-str">"SELECT * FROM users WHERE name='"</span> + user;</div>
+        <div class="code-line">&nbsp;&nbsp;<span class="code-fn">eval</span>(pass);</div>
+        <div class="code-line">&nbsp;&nbsp;<span class="code-kw">var</span> result = db.query(q);</div>
+        <div class="code-line">}</div>
+        <div class="code-line" style="margin-top:14px"><span class="code-cm">// ── Analyzing with RAG context... ──</span></div>
+        <div id="issue-tags" style="margin-top:8px"></div>
+        <div id="score-show" style="margin-top:10px;display:none">
+          <div class="score-chip">✅ &nbsp;Analysis complete &nbsp;·&nbsp; Score: <strong>24/100</strong> &nbsp;·&nbsp; 3 issues found</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+</div>
+
+<div class="section-divider"></div>
+
+<!-- ── Features ───────────────────────────────────────────────────────────── -->
+<section class="section" id="features">
+  <div class="section-tag">Features</div>
+  <h2 class="section-title">Everything you need for <span class="gradient-text">serious code review</span></h2>
+  <p class="section-sub">Not just pattern matching — CodeScope understands context using a curated knowledge base of industry best practices.</p>
+  <div class="features-grid">
+    <div class="feature-card">
+      <div class="feature-icon">🔍</div>
+      <h3>RAG-Powered Analysis</h3>
+      <p>Code embeddings are matched against a MongoDB knowledge base covering OWASP Top 10, SOLID principles, and language-specific idioms — giving GPT-4o-mini real context.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🔒</div>
+      <h3>Security Scanning</h3>
+      <p>Detects SQL injection, XSS, eval misuse, hardcoded secrets, insecure auth, and more — with fix suggestions that reference real OWASP guidance.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">⚡</div>
+      <h3>Performance Issues</h3>
+      <p>Catches memory leaks, N+1 queries, unnecessary re-renders, poor algorithmic complexity, and missing caching layers before they hit production.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🧩</div>
+      <h3>Complexity Metrics</h3>
+      <p>Reports cyclomatic complexity, maintainability index, lines of code, and duplicate ratio — with an overall health score from 0–100.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">📊</div>
+      <h3>Analysis History</h3>
+      <p>Every analysis is stored in MongoDB with full pagination, language filtering, and a dashboard showing trends over time.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🔐</div>
+      <h3>Secure by Default</h3>
+      <p>JWT authentication, bcrypt password hashing, rate limiting (100 req/15min, 30 analyses/hr), Helmet security headers, and CORS protection.</p>
+    </div>
+  </div>
+</section>
+
+<div class="section-divider"></div>
+
+<!-- ── Live Demo ───────────────────────────────────────────────────────────── -->
+<section class="section" id="demo">
+  <div class="section-tag">Live Demo</div>
+  <h2 class="section-title">See what CodeScope <span class="gradient-text">finds</span></h2>
+  <p class="section-sub">Real analysis output for common code patterns. No account needed to preview.</p>
+
+  <div class="demo-section">
+    <div class="demo-tabs">
+      <button class="demo-tab active" onclick="showDemo(0)">SQL Injection</button>
+      <button class="demo-tab" onclick="showDemo(1)">Memory Leak</button>
+      <button class="demo-tab" onclick="showDemo(2)">Python Security</button>
+    </div>
+
+    <!-- Demo 0 -->
+    <div class="demo-example active" id="demo-0">
+      <div>
+        <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:8px;font-family:var(--mono)">JavaScript · LoginController.js</div>
+        <div class="demo-code"><span style="color:#818cf8">function</span> <span style="color:#22d3ee">getUser</span>(username) {
+  <span style="color:#475569">// ⚠️ Vulnerable code</span>
+  <span style="color:#818cf8">const</span> query = <span style="color:#34d399">"SELECT * FROM users WHERE name='"</span>
+    + username + <span style="color:#34d399">"'"</span>;
+  <span style="color:#818cf8">return</span> db.execute(query);
+}</div>
+      </div>
+      <div class="demo-results">
+        <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:4px">Detected Issues</div>
+        <div class="issue-card" style="border-left-color:#ef4444">
+          <div class="issue-top">
+            <span class="sev-badge" style="background:rgba(239,68,68,0.15);color:#ef4444">CRITICAL</span>
+            <span class="type-badge">🔒 security</span>
+            <span class="line-badge">line 3</span>
+          </div>
+          <div class="issue-msg">SQL Injection vulnerability — user input concatenated directly into query string</div>
+          <div class="issue-suggestion open" style="display:block">💡 Use parameterized queries: <code style="font-family:var(--mono);color:var(--cyan)">db.execute("SELECT * FROM users WHERE name = ?", [username])</code></div>
+        </div>
+        <div class="score-chip" style="margin-top:4px">🔴 Score: <strong style="margin-left:6px">18/100</strong> &nbsp;·&nbsp; RAG matched: OWASP Top 10 – A03 Injection</div>
+      </div>
+    </div>
+
+    <!-- Demo 1 -->
+    <div class="demo-example" id="demo-1">
+      <div>
+        <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:8px;font-family:var(--mono)">JavaScript · EventHandler.js</div>
+        <div class="demo-code"><span style="color:#818cf8">function</span> <span style="color:#22d3ee">setupPolling</span>() {
+  <span style="color:#818cf8">const</span> interval = setInterval(() => {
+    fetchData().then(render);
+  }, <span style="color:#34d399">1000</span>);
+  <span style="color:#475569">// ⚠️ interval never cleared</span>
+  <span style="color:#818cf8">return</span> interval;
+}
+
+<span style="color:#22d3ee">setupPolling</span>();
+<span style="color:#22d3ee">setupPolling</span>(); <span style="color:#475569">// called twice!</span></div>
+      </div>
+      <div class="demo-results">
+        <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:4px">Detected Issues</div>
+        <div class="issue-card" style="border-left-color:#f97316">
+          <div class="issue-top">
+            <span class="sev-badge" style="background:rgba(249,115,22,0.15);color:#f97316">HIGH</span>
+            <span class="type-badge">⚡ performance</span>
+            <span class="line-badge">line 2</span>
+          </div>
+          <div class="issue-msg">Memory leak — setInterval created but never cleared. Multiple calls stack indefinitely.</div>
+          <div class="issue-suggestion" style="display:block">💡 Return the interval ID and call <code style="font-family:var(--mono);color:var(--cyan)">clearInterval(id)</code> on component unmount.</div>
+        </div>
+        <div class="score-chip" style="margin-top:4px;background:rgba(249,115,22,0.1);border-color:rgba(249,115,22,0.3);color:#f97316">🟠 Score: <strong style="margin-left:6px">41/100</strong> &nbsp;·&nbsp; RAG matched: Avoiding Memory Leaks</div>
+      </div>
+    </div>
+
+    <!-- Demo 2 -->
+    <div class="demo-example" id="demo-2">
+      <div>
+        <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:8px;font-family:var(--mono)">Python · data_processor.py</div>
+        <div class="demo-code"><span style="color:#818cf8">def</span> <span style="color:#22d3ee">run_command</span>(user_input):
+    <span style="color:#475569"># ⚠️ Critical vulnerability</span>
+    result = <span style="color:#22d3ee">eval</span>(user_input)
+    <span style="color:#818cf8">return</span> result
+
+<span style="color:#818cf8">def</span> <span style="color:#22d3ee">process</span>(data):
+    <span style="color:#818cf8">import</span> os
+    os.system(<span style="color:#34d399">f"process {data}"</span>)</div>
+      </div>
+      <div class="demo-results">
+        <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:4px">Detected Issues</div>
+        <div class="issue-card" style="border-left-color:#ef4444">
+          <div class="issue-top">
+            <span class="sev-badge" style="background:rgba(239,68,68,0.15);color:#ef4444">CRITICAL</span>
+            <span class="type-badge">🔒 security</span>
+            <span class="line-badge">line 3</span>
+          </div>
+          <div class="issue-msg">eval() with user input allows arbitrary code execution — Remote Code Execution risk.</div>
+          <div class="issue-suggestion" style="display:block">💡 Never use eval() with untrusted input. Use <code style="font-family:var(--mono);color:var(--cyan)">ast.literal_eval()</code> for safe parsing.</div>
+        </div>
+        <div class="score-chip" style="margin-top:4px">🔴 Score: <strong style="margin-left:6px">12/100</strong> &nbsp;·&nbsp; RAG matched: Python Input Validation</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="section-divider"></div>
+
+<!-- ── How It Works ────────────────────────────────────────────────────────── -->
+<section class="section" id="how-it-works">
+  <div class="section-tag">Architecture</div>
+  <h2 class="section-title">How CodeScope <span class="gradient-text">works</span></h2>
+  <p class="section-sub">A production-grade RAG pipeline powering every analysis.</p>
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">1</div>
+      <h3>Submit Code via GraphQL</h3>
+      <p>Send a <code style="font-family:var(--mono);font-size:0.8em;color:var(--cyan)">analyzeCode</code> mutation with your source code, language, and title. JWT auth protects every request.</p>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <h3>RAG Context Retrieval</h3>
+      <p>Your code is vectorized using <strong>text-embedding-3-small</strong> (1536-dim). Cosine similarity search retrieves the top-5 matching best practices from MongoDB.</p>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <h3>GPT-4o-mini Analysis</h3>
+      <p>Source code + RAG context is sent to GPT-4o-mini in JSON mode. Returns a structured report: issues[], metrics{}, and summary.</p>
+    </div>
+    <div class="step">
+      <div class="step-num">4</div>
+      <h3>Results & History</h3>
+      <p>Analysis is saved to MongoDB with full indexing. View your analysis history, filter by language, and track quality trends over time.</p>
+    </div>
+  </div>
+</section>
+
+<div class="section-divider"></div>
+
+<!-- ── Tech Stack ──────────────────────────────────────────────────────────── -->
+<section class="section">
+  <div class="section-tag">Tech Stack</div>
+  <h2 class="section-title" style="margin-bottom:24px">Built with production-grade tools</h2>
+  <div class="tech-stack">
+    <div class="tech-badge">🟩 Node.js</div>
+    <div class="tech-badge">🚀 Express.js</div>
+    <div class="tech-badge">⬡ GraphQL (Apollo)</div>
+    <div class="tech-badge">🍃 MongoDB + Mongoose</div>
+    <div class="tech-badge">🤖 OpenAI GPT-4o-mini</div>
+    <div class="tech-badge">🧠 text-embedding-3-small</div>
+    <div class="tech-badge">🔐 JWT + bcrypt</div>
+    <div class="tech-badge">🛡️ Helmet + CORS</div>
+    <div class="tech-badge">⏱️ express-rate-limit</div>
+    <div class="tech-badge">📦 Docker + Compose</div>
+    <div class="tech-badge">🧪 Jest + Supertest</div>
+    <div class="tech-badge">📝 Winston</div>
+  </div>
+
+  <div style="margin-top:32px">
+    <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:10px;font-weight:500">Supported Languages</div>
+    <div class="lang-pills">
+      <span class="lang-pill">🟨 JavaScript</span>
+      <span class="lang-pill">🔷 TypeScript</span>
+      <span class="lang-pill">🐍 Python</span>
+      <span class="lang-pill">☕ Java</span>
+      <span class="lang-pill">🐹 Go</span>
+      <span class="lang-pill">🦀 Rust</span>
+      <span class="lang-pill">⚙️ C++</span>
+    </div>
+  </div>
+</section>
+
+<!-- ── CTA ─────────────────────────────────────────────────────────────────── -->
+<div class="section-divider"></div>
+<section class="cta-banner">
+  <h2>Start analyzing your code <span class="gradient-text">today</span></h2>
+  <p>Free forever for personal use. No credit card. Full RAG pipeline on every analysis.</p>
+  <div style="display:flex;gap:14px;justify-content:center">
+    <a href="auth.html?mode=register" class="btn btn-primary">Create Free Account &nbsp;→</a>
+    <a href="https://github.com/PranavNagothu/codescope" target="_blank" class="btn btn-ghost">View on GitHub</a>
+  </div>
+</section>
+
+</main>
+
+<!-- ── Footer ─────────────────────────────────────────────────────────────── -->
+<footer style="border-top:1px solid var(--border2);padding:32px 2rem;display:flex;align-items:center;justify-content:space-between;color:var(--text-muted);font-size:0.85rem;position:relative;z-index:1">
+  <div style="display:flex;align-items:center;gap:10px">
+    <div class="logo-icon" style="width:24px;height:24px;border-radius:6px;font-size:12px">⚡</div>
+    <span>CodeScope &copy; 2026 &nbsp;·&nbsp; Built by Pranav Nagothu</span>
+  </div>
+  <div style="display:flex;gap:24px">
+    <a href="https://github.com/PranavNagothu/codescope" target="_blank" style="color:var(--text-muted);transition:color 0.2s" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--text-muted)'">GitHub</a>
+    <a href="analyzer.html" style="color:var(--text-muted);transition:color 0.2s" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--text-muted)'">Analyzer</a>
+    <a href="dashboard.html" style="color:var(--text-muted);transition:color 0.2s" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--text-muted)'">Dashboard</a>
+  </div>
+</footer>
+
+<script src="js/utils.js"></script>
+<script>
+  renderNav();
+
+  // Demo tabs
+  function showDemo(idx) {
+    document.querySelectorAll('.demo-tab').forEach((t,i) => t.classList.toggle('active', i === idx));
+    document.querySelectorAll('.demo-example').forEach((e,i) => e.classList.toggle('active', i === idx));
+  }
+
+  // Animated terminal
+  const issues = [
+    { cls: 'issue-critical', label: '🔒 CRITICAL · SQL Injection · line 3', delay: 1200 },
+    { cls: 'issue-critical', label: '🐛 CRITICAL · eval() with user input · line 4', delay: 1800 },
+    { cls: 'issue-medium',   label: '🎨 MEDIUM · Use const instead of var · line 5', delay: 2400 },
+  ];
+  const tagsEl = document.getElementById('issue-tags');
+  const scoreEl = document.getElementById('score-show');
+
+  issues.forEach(({ cls, label, delay }) => {
+    setTimeout(() => {
+      const tag = document.createElement('div');
+      tag.className = `issue-tag ${cls}`;
+      tag.style.animationDelay = '0s';
+      tag.textContent = label;
+      tagsEl.appendChild(tag);
+    }, delay);
+  });
+  setTimeout(() => { scoreEl.style.display = 'block'; }, 3200);
+</script>
+</body>
+</html>

@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CodeScope — Dashboard</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    .dash-wrap { padding: 84px 24px 48px; max-width: 1400px; margin: 0 auto; }
+    .dash-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 28px; }
+    .dash-title-area h1 { font-size: 1.5rem; font-weight: 700; }
+    .dash-title-area p { color: var(--text-muted); font-size: 0.875rem; margin-top: 4px; }
+    .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+    .stat-card { padding: 22px; background: var(--surface); border: 1px solid var(--border2); border-radius: var(--radius); position: relative; overflow: hidden; transition: all 0.25s; }
+    .stat-card:hover { border-color: var(--border); transform: translateY(-2px); box-shadow: var(--shadow); }
+    .stat-card-icon { font-size: 1.5rem; margin-bottom: 10px; }
+    .stat-card-val { font-size: 2.2rem; font-weight: 700; line-height: 1; }
+    .stat-card-lbl { font-size: 0.78rem; color: var(--text-muted); margin-top: 6px; font-weight: 500; letter-spacing: 0.02em; }
+    .stat-card-trend { position: absolute; top: 16px; right: 16px; font-size: 0.75rem; padding: 3px 8px; border-radius: 100px; }
+    .charts-row { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 24px; }
+    .chart-card { padding: 24px; background: var(--surface); border: 1px solid var(--border2); border-radius: var(--radius); }
+    .chart-card-title { font-size: 0.9rem; font-weight: 600; color: var(--text-dim); margin-bottom: 20px; display: flex; align-items: center; gap: 8px; }
+    .chart-canvas-wrap { height: 220px; }
+    .history-card { background: var(--surface); border: 1px solid var(--border2); border-radius: var(--radius); overflow: hidden; }
+    .history-head { padding: 18px 24px; border-bottom: 1px solid var(--border2); display: flex; align-items: center; justify-content: space-between; }
+    .history-head h3 { font-size: 0.95rem; font-weight: 600; }
+    .badge-lang { display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; border-radius: 100px; background: var(--surface2); border: 1px solid var(--border2); font-size: 0.72rem; color: var(--text-muted); font-family: var(--mono); }
+    .badge-status-completed { color: var(--success); background: rgba(16,185,129,0.1); padding: 3px 9px; border-radius: 100px; font-size: 0.72rem; font-weight: 500; }
+    .badge-status-failed { color: var(--danger); background: rgba(239,68,68,0.1); padding: 3px 9px; border-radius: 100px; font-size: 0.72rem; font-weight: 500; }
+    .history-actions { display: flex; gap: 8px; }
+    .delete-btn { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 1rem; padding: 4px 8px; border-radius: 4px; transition: all 0.2s; }
+    .delete-btn:hover { color: var(--danger); background: rgba(239,68,68,0.1); }
+    .skeleton { background: linear-gradient(90deg, var(--surface) 25%, var(--surface2) 50%, var(--surface) 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 4px; }
+    @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+    @media (max-width: 900px) { .stats-row { grid-template-columns: repeat(2,1fr); } .charts-row { grid-template-columns: 1fr; } }
+    @media (max-width: 600px) { .stats-row { grid-template-columns: 1fr 1fr; } }
+  </style>
+</head>
+<body>
+
+<!-- Navbar -->
+<nav class="navbar">
+  <a href="index.html" class="nav-logo">
+    <div class="logo-icon">⚡</div>
+    <span>Code<strong>Scope</strong></span>
+  </a>
+  <div class="nav-links">
+    <a href="analyzer.html">Analyzer</a>
+    <a href="dashboard.html" style="color:var(--primary2)">Dashboard</a>
+  </div>
+  <div id="nav-user"></div>
+</nav>
+
+<main>
+<div class="dash-wrap">
+
+  <!-- Header -->
+  <div class="dash-header">
+    <div class="dash-title-area">
+      <h1>Dashboard</h1>
+      <p id="dash-sub">Your code quality overview</p>
+    </div>
+    <a href="analyzer.html" class="btn btn-primary btn-sm">+ New Analysis</a>
+  </div>
+
+  <!-- Stats Row -->
+  <div class="stats-row" id="stats-row">
+    <div class="stat-card skeleton" style="height:110px"></div>
+    <div class="stat-card skeleton" style="height:110px"></div>
+    <div class="stat-card skeleton" style="height:110px"></div>
+    <div class="stat-card skeleton" style="height:110px"></div>
+  </div>
+
+  <!-- Charts Row -->
+  <div class="charts-row">
+    <div class="chart-card">
+      <div class="chart-card-title">🌐 Language Breakdown</div>
+      <div class="chart-canvas-wrap">
+        <canvas id="lang-chart"></canvas>
+      </div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-card-title">🐛 Top Issue Types</div>
+      <div class="chart-canvas-wrap">
+        <canvas id="issue-chart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- History Table -->
+  <div class="history-card">
+    <div class="history-head">
+      <h3>Analysis History</h3>
+      <a href="analyzer.html" class="btn btn-ghost btn-sm">+ Analyze New Code</a>
+    </div>
+    <div id="history-body">
+      <table>
+        <thead>
+          <tr>
+            <th>Title</th>
+            <th>Language</th>
+            <th>Score</th>
+            <th>Issues</th>
+            <th>Status</th>
+            <th>Date</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="history-rows">
+          <tr><td colspan="7"><div class="loading-rows skeleton" style="height:40px;margin:12px 20px;border-radius:6px"></div></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+</main>
+
+<script src="js/utils.js"></script>
+<script>
+  if (!Auth.requireAuth()) throw new Error('unauth');
+  renderNav();
+
+  const user = Auth.getUser();
+  if (user) document.getElementById('dash-sub').textContent = `Welcome back, ${user.username} · ${user.analysisCount || 0} total analyses`;
+
+  // Chart.js defaults
+  Chart.defaults.color = '#64748b';
+  Chart.defaults.font.family = "'Inter', sans-serif";
+
+  const GRAD_COLORS = ['#6366f1','#22d3ee','#10b981','#f59e0b','#f97316','#ef4444','#8b5cf6'];
+  const ISSUE_COLORS = { bug: '#ef4444', security: '#f97316', performance: '#f59e0b', style: '#3b82f6', maintainability: '#8b5cf6', complexity: '#22d3ee' };
+
+  let langChart, issueChart;
+
+  // ── Load data ──────────────────────────────────────────────────────────────
+  async function loadDashboard() {
+    try {
+      const [statsData, historyData] = await Promise.all([
+        gql(`query { dashboardStats { totalAnalyses averageScore topIssueTypes { type count } languageBreakdown { language count } } }`),
+        gql(`query { myAnalyses(limit: 20) { id title language metrics { overallScore } issues { type } status processingTimeMs createdAt } }`)
+      ]);
+
+      renderStats(statsData.dashboardStats);
+      renderCharts(statsData.dashboardStats);
+      renderHistory(historyData.myAnalyses);
+    } catch (err) {
+      toast(err.message || 'Failed to load dashboard', 'error');
+    }
+  }
+
+  // ── Render Stats ───────────────────────────────────────────────────────────
+  function renderStats(stats) {
+    const score = stats.averageScore ? stats.averageScore.toFixed(1) : '—';
+    const scoreCol = stats.averageScore >= 70 ? 'var(--success)' : stats.averageScore >= 50 ? 'var(--warn)' : 'var(--danger)';
+
+    document.getElementById('stats-row').innerHTML = `
+      <div class="stat-card fade-in">
+        <div class="stat-card-icon">📊</div>
+        <div class="stat-card-val">${stats.totalAnalyses}</div>
+        <div class="stat-card-lbl">Total Analyses</div>
+      </div>
+      <div class="stat-card fade-in" style="animation-delay:0.07s">
+        <div class="stat-card-icon">⭐</div>
+        <div class="stat-card-val" style="color:${scoreCol}">${score}</div>
+        <div class="stat-card-lbl">Average Score</div>
+      </div>
+      <div class="stat-card fade-in" style="animation-delay:0.14s">
+        <div class="stat-card-icon">🌐</div>
+        <div class="stat-card-val">${stats.languageBreakdown.length}</div>
+        <div class="stat-card-lbl">Languages Analyzed</div>
+      </div>
+      <div class="stat-card fade-in" style="animation-delay:0.21s">
+        <div class="stat-card-icon">🐛</div>
+        <div class="stat-card-val">${stats.topIssueTypes.reduce((s,t) => s + t.count, 0)}</div>
+        <div class="stat-card-lbl">Issues Detected</div>
+      </div>
+    `;
+  }
+
+  // ── Render Charts ──────────────────────────────────────────────────────────
+  function renderCharts(stats) {
+    // Language Chart
+    const langLabels = stats.languageBreakdown.map(l => `${LANG_ICON[l.language] || ''} ${l.language}`);
+    const langData = stats.languageBreakdown.map(l => l.count);
+
+    if (langChart) langChart.destroy();
+    if (langLabels.length > 0) {
+      langChart = new Chart(document.getElementById('lang-chart'), {
+        type: 'doughnut',
+        data: {
+          labels: langLabels,
+          datasets: [{ data: langData, backgroundColor: GRAD_COLORS, borderColor: '#0d1529', borderWidth: 3, hoverOffset: 6 }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: {
+            legend: { position: 'right', labels: { padding: 16, boxWidth: 12, boxHeight: 12, font: { size: 12 }, color: '#94a3b8' } }
+          },
+          cutout: '65%'
+        }
+      });
+    } else {
+      document.getElementById('lang-chart').parentElement.innerHTML = '<div class="empty-state" style="height:100%"><p>No data yet — analyze some code!</p></div>';
+    }
+
+    // Issues Chart
+    const issueLabels = stats.topIssueTypes.map(t => `${TYPE_ICON[t.type] || ''} ${t.type}`);
+    const issueCounts = stats.topIssueTypes.map(t => t.count);
+    const issueColors = stats.topIssueTypes.map(t => ISSUE_COLORS[t.type] || '#6366f1');
+
+    if (issueChart) issueChart.destroy();
+    if (issueLabels.length > 0) {
+      issueChart = new Chart(document.getElementById('issue-chart'), {
+        type: 'bar',
+        data: {
+          labels: issueLabels,
+          datasets: [{
+            data: issueCounts,
+            backgroundColor: issueColors.map(c => c + '33'),
+            borderColor: issueColors,
+            borderWidth: 2, borderRadius: 6, borderSkipped: false
+          }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          indexAxis: 'y',
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#64748b', font: { size: 11 } } },
+            y: { grid: { display: false }, ticks: { color: '#94a3b8', font: { size: 12 } } }
+          }
+        }
+      });
+    } else {
+      document.getElementById('issue-chart').parentElement.innerHTML = '<div class="empty-state"><p>No issues data yet</p></div>';
+    }
+  }
+
+  // ── Render History ─────────────────────────────────────────────────────────
+  function renderHistory(analyses) {
+    const tbody = document.getElementById('history-rows');
+    if (!analyses || analyses.length === 0) {
+      tbody.innerHTML = `
+        <tr><td colspan="7">
+          <div class="empty-state">
+            <div style="font-size:2rem;opacity:0.3">📋</div>
+            <p>No analyses yet. <a href="analyzer.html" style="color:var(--primary2)">Analyze your first file →</a></p>
+          </div>
+        </td></tr>
+      `;
+      return;
+    }
+
+    tbody.innerHTML = analyses.map(a => {
+      const score = a.metrics?.overallScore ?? '—';
+      const scoreColor = typeof score === 'number' ? scoreColor_(score) : 'var(--text-muted)';
+      const issueCount = a.issues?.length ?? 0;
+      const statusClass = a.status === 'completed' ? 'badge-status-completed' : 'badge-status-failed';
+
+      return `
+        <tr onclick="viewAnalysis('${a.id}')" title="Click to view details">
+          <td class="td-title">${a.title}</td>
+          <td><span class="badge-lang">${LANG_ICON[a.language] || ''} ${a.language}</span></td>
+          <td class="td-score" style="color:${scoreColor};font-weight:700">${score}</td>
+          <td style="color:var(--text-muted)">${issueCount}</td>
+          <td><span class="${statusClass}">${a.status}</span></td>
+          <td style="color:var(--text-muted);font-size:0.82rem">${formatDate(a.createdAt)}</td>
+          <td>
+            <button class="delete-btn" onclick="deleteAnalysis(event, '${a.id}')" title="Delete">🗑</button>
+          </td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  function scoreColor_(score) {
+    if (score >= 80) return '#10b981';
+    if (score >= 60) return '#f59e0b';
+    if (score >= 40) return '#f97316';
+    return '#ef4444';
+  }
+
+  // ── View single analysis ───────────────────────────────────────────────────
+  async function viewAnalysis(id) {
+    try {
+      const data = await gql(`
+        query Analysis($id: ID!) {
+          analysis(id: $id) {
+            id title language
+            issues { type severity line message suggestion }
+            metrics { linesOfCode cyclomaticComplexity maintainabilityIndex duplicateRatio overallScore }
+            summary processingTimeMs createdAt
+          }
+        }
+      `, { id });
+      showModal(data.analysis);
+    } catch (err) {
+      toast('Failed to load analysis', 'error');
+    }
+  }
+
+  // ── Delete analysis ────────────────────────────────────────────────────────
+  async function deleteAnalysis(e, id) {
+    e.stopPropagation();
+    if (!confirm('Delete this analysis?')) return;
+    try {
+      await gql(`mutation Del($id: ID!) { deleteAnalysis(id: $id) }`, { id });
+      toast('Analysis deleted', 'success');
+      loadDashboard();
+    } catch (err) {
+      toast('Failed to delete', 'error');
+    }
+  }
+
+  // ── Modal ──────────────────────────────────────────────────────────────────
+  function showModal(a) {
+    const score = a.metrics?.overallScore ?? 0;
+    const color = scoreColor_(score);
+    const existing = document.getElementById('analysis-modal');
+    if (existing) existing.remove();
+
+    const modal = document.createElement('div');
+    modal.id = 'analysis-modal';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.75);backdrop-filter:blur(8px);z-index:2000;display:flex;align-items:center;justify-content:center;padding:20px';
+    modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+    modal.innerHTML = `
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);max-width:700px;width:100%;max-height:85vh;overflow-y:auto;animation:fadeSlideIn 0.3s ease">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:20px 24px;border-bottom:1px solid var(--border2);position:sticky;top:0;background:var(--surface)">
+          <div>
+            <h3 style="font-size:1.05rem;font-weight:600">${a.title}</h3>
+            <p style="font-size:0.78rem;color:var(--text-muted);margin-top:2px">${LANG_ICON[a.language]||''} ${a.language} · ${formatDate(a.createdAt)}</p>
+          </div>
+          <button onclick="document.getElementById('analysis-modal').remove()" style="background:none;border:none;color:var(--text-muted);font-size:1.3rem;cursor:pointer;padding:4px 8px;border-radius:6px;transition:all 0.2s" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background='none'">✕</button>
+        </div>
+        <div style="padding:24px;display:flex;flex-direction:column;gap:16px">
+          <div class="score-section">
+            <div style="text-align:center;width:80px">
+              <div style="font-size:2.2rem;font-weight:800;color:${color}">${score}</div>
+              <div style="font-size:0.72rem;color:var(--text-muted)">Score</div>
+            </div>
+            <div>
+              ${a.summary ? `<p style="font-size:0.875rem;color:var(--text-dim);line-height:1.6">${a.summary}</p>` : ''}
+              <div class="processing-tag" style="margin-top:8px">⚡ ${a.processingTimeMs}ms</div>
+            </div>
+          </div>
+          <div class="metrics-row">
+            <div class="metric-chip"><div class="val">${a.metrics?.linesOfCode||0}</div><div class="lbl">Lines</div></div>
+            <div class="metric-chip"><div class="val">${a.metrics?.cyclomaticComplexity||0}</div><div class="lbl">Complexity</div></div>
+            <div class="metric-chip"><div class="val">${a.metrics?.maintainabilityIndex||0}</div><div class="lbl">Maintainability</div></div>
+            <div class="metric-chip"><div class="val">${((a.metrics?.duplicateRatio||0)*100).toFixed(0)}%</div><div class="lbl">Duplicate</div></div>
+          </div>
+          <div>
+            <div style="font-size:0.85rem;font-weight:600;margin-bottom:10px">Issues (${a.issues?.length||0})</div>
+            <div style="display:flex;flex-direction:column;gap:8px">
+              ${(a.issues||[]).map(issue => `
+                <div class="issue-card" style="border-left-color:${SEVERITY_COLOR[issue.severity]||'var(--border)'}">
+                  <div class="issue-top">
+                    <span class="sev-badge" style="background:${SEVERITY_COLOR[issue.severity]||'#6366f1'}20;color:${SEVERITY_COLOR[issue.severity]||'#6366f1'}">${issue.severity.toUpperCase()}</span>
+                    <span class="type-badge">${TYPE_ICON[issue.type]||'•'} ${issue.type}</span>
+                    ${issue.line?`<span class="line-badge">line ${issue.line}</span>`:''}
+                  </div>
+                  <div class="issue-msg">${issue.message}</div>
+                  ${issue.suggestion?`<div class="issue-suggestion" style="display:block">💡 ${issue.suggestion}</div>`:''}
+                </div>
+              `).join('') || '<div style="color:var(--text-muted);font-size:0.85rem;padding:8px 0">No issues found 🎉</div>'}
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+  }
+
+  // ── Init ───────────────────────────────────────────────────────────────────
+  loadDashboard();
+</script>
+</body>
+</html>

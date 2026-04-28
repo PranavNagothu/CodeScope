@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CodeScope — Analyze Code</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <style>
+    .analyzer-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; padding: 80px 20px 40px; min-height: 100vh; align-items: start; }
+    .panel { display: flex; flex-direction: column; gap: 14px; position: sticky; top: 80px; }
+    .analysis-meta { display: flex; gap: 10px; align-items: center; }
+    .title-input { flex: 1; padding: 10px 14px; background: var(--surface); border: 1px solid var(--border2); border-radius: var(--radius-sm); color: var(--text); font-size: 0.9rem; transition: border-color 0.2s; }
+    .title-input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(99,102,241,0.1); }
+    .title-input::placeholder { color: var(--text-muted); }
+    .lang-select { padding: 10px 14px; background: var(--surface); border: 1px solid var(--border2); border-radius: var(--radius-sm); color: var(--text); font-size: 0.88rem; cursor: pointer; }
+    .lang-select:focus { border-color: var(--primary); }
+    .editor-container { position: relative; }
+    .code-textarea {
+      width: 100%; min-height: 420px; max-height: 520px;
+      padding: 16px; font-family: var(--mono); font-size: 0.83rem;
+      color: #e2e8f0; background: #060d1e;
+      border: 1px solid var(--border2); border-radius: var(--radius);
+      resize: vertical; line-height: 1.7; tab-size: 2;
+      transition: border-color 0.2s;
+    }
+    .code-textarea:focus { border-color: var(--primary); outline: none; box-shadow: 0 0 0 3px rgba(99,102,241,0.1); }
+    .code-textarea::placeholder { color: #334155; }
+    .editor-footer { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: #060d1e; border: 1px solid var(--border2); border-top: none; border-radius: 0 0 var(--radius) var(--radius); margin-top: -4px; }
+    .char-count { font-family: var(--mono); font-size: 0.72rem; color: var(--text-muted); }
+    .analyze-btn { width: 100%; padding: 14px; font-size: 1rem; font-weight: 600; border-radius: var(--radius); background: var(--grad); color: #fff; border: none; cursor: pointer; transition: all 0.25s; display: flex; align-items: center; justify-content: center; gap: 10px; box-shadow: 0 4px 20px rgba(99,102,241,0.3); }
+    .analyze-btn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(99,102,241,0.45); }
+    .analyze-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+    .results-panel { min-height: 500px; }
+    .results-placeholder { border: 2px dashed var(--border2); border-radius: var(--radius-lg); padding: 60px 32px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; text-align: center; color: var(--text-muted); }
+    .results-placeholder .icon { font-size: 3rem; opacity: 0.3; }
+    .filters { display: flex; gap: 8px; flex-wrap: wrap; }
+    .filter-btn { padding: 5px 12px; border-radius: 100px; border: 1px solid var(--border2); background: none; color: var(--text-muted); font-size: 0.78rem; cursor: pointer; transition: all 0.2s; }
+    .filter-btn.active, .filter-btn:hover { border-color: var(--primary); color: var(--primary2); background: rgba(99,102,241,0.08); }
+    .rag-info { display: flex; align-items: center; gap: 8px; font-size: 0.78rem; color: var(--text-muted); padding: 8px 12px; background: rgba(34,211,238,0.05); border: 1px solid rgba(34,211,238,0.15); border-radius: var(--radius-sm); }
+    .rag-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--cyan); flex-shrink: 0; }
+    .fix-btn { width:100%; padding:12px; font-size:0.9rem; font-weight:600; border-radius:var(--radius); background:linear-gradient(135deg,#10b981,#059669); color:#fff; border:none; cursor:pointer; transition:all 0.25s; display:flex; align-items:center; justify-content:center; gap:8px; box-shadow:0 4px 16px rgba(16,185,129,0.3); margin-top:4px; }
+    .fix-btn:hover:not(:disabled) { transform:translateY(-2px); box-shadow:0 8px 24px rgba(16,185,129,0.45); }
+    .fix-btn:disabled { opacity:0.5; cursor:not-allowed; transform:none; }
+    .fixed-code-modal { position:fixed;inset:0;background:rgba(0,0,0,0.8);backdrop-filter:blur(8px);z-index:2000;display:flex;align-items:center;justify-content:center;padding:20px; }
+    .fixed-code-box { background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);max-width:800px;width:100%;max-height:90vh;display:flex;flex-direction:column;animation:fadeSlideIn 0.3s ease; }
+    .fixed-code-header { display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--border2); }
+    .fixed-code-pre { flex:1;overflow:auto;margin:0;padding:20px;font-family:var(--mono);font-size:0.82rem;line-height:1.7;color:#e2e8f0;background:#060d1e;white-space:pre-wrap;word-break:break-all; }
+    .fixed-code-footer { padding:12px 20px;border-top:1px solid var(--border2);display:flex;gap:10px;justify-content:flex-end; }
+    @media (max-width: 900px) { .analyzer-layout { grid-template-columns: 1fr; } .panel { position: static; } }
+  </style>
+</head>
+<body>
+
+<!-- Navbar -->
+<nav class="navbar">
+  <a href="index.html" class="nav-logo">
+    <div class="logo-icon">⚡</div>
+    <span>Code<strong>Scope</strong></span>
+  </a>
+  <div class="nav-links">
+    <a href="analyzer.html" style="color:var(--primary2)">Analyzer</a>
+    <a href="dashboard.html">Dashboard</a>
+  </div>
+  <div id="nav-user"></div>
+</nav>
+
+<main>
+<div class="analyzer-layout">
+
+  <!-- ── Left: Editor Panel ───────────────────────────────────────── -->
+  <div class="panel">
+    <div class="panel-header">
+      <h2 class="panel-title">New Analysis</h2>
+      <span id="user-count" style="font-size:0.78rem;color:var(--text-muted)"></span>
+    </div>
+
+    <div class="analysis-meta">
+      <input type="text" id="analysis-title" class="title-input" placeholder="Analysis title (e.g. Login Controller)" maxlength="80" />
+      <select id="lang-select" class="lang-select">
+        <option value="javascript">🟨 JavaScript</option>
+        <option value="typescript">🔷 TypeScript</option>
+        <option value="python">🐍 Python</option>
+        <option value="java">☕ Java</option>
+        <option value="go">🐹 Go</option>
+        <option value="rust">🦀 Rust</option>
+        <option value="cpp">⚙️ C++</option>
+      </select>
+    </div>
+
+    <div class="editor-container">
+      <textarea
+        id="code-input"
+        class="code-textarea"
+        placeholder="// Paste your code here...
+// CodeScope will analyze it for:
+//   ● Bugs and logic errors
+//   ● Security vulnerabilities (OWASP)
+//   ● Performance bottlenecks
+//   ● Style and maintainability issues
+//   ● Cyclomatic complexity"
+        spellcheck="false"
+        autocorrect="off"
+        autocapitalize="off"
+        oninput="updateCharCount()"
+        onkeydown="handleTab(event)"
+      ></textarea>
+      <div class="editor-footer">
+        <span class="char-count" id="char-count">0 / 50,000 chars</span>
+        <button onclick="clearEditor()" style="background:none;border:none;color:var(--text-muted);font-size:0.78rem;cursor:pointer;transition:color 0.2s" onmouseover="this.style.color='var(--danger)'" onmouseout="this.style.color='var(--text-muted)'">Clear</button>
+      </div>
+    </div>
+
+    <button id="analyze-btn" class="analyze-btn" onclick="runAnalysis()">
+      ⚡ Analyze Code
+    </button>
+
+    <div class="rag-info">
+      <div class="rag-dot"></div>
+      RAG pipeline active — OWASP + SOLID + language best practices loaded
+    </div>
+  </div>
+
+  <!-- ── Right: Results Panel ─────────────────────────────────────── -->
+  <div id="results-panel">
+    <div class="results-placeholder" id="placeholder">
+      <div class="icon">🔍</div>
+      <h3 style="font-size:1rem;font-weight:500;color:var(--text-dim)">Ready to analyze</h3>
+      <p style="font-size:0.85rem;max-width:280px">Paste your code on the left and click <strong>Analyze Code</strong> to get a detailed AI-powered report with severity ratings and fix suggestions.</p>
+    </div>
+
+    <div id="results-content" style="display:none;flex-direction:column;gap:16px"></div>
+  </div>
+
+</div>
+</main>
+
+<script src="js/utils.js"></script>
+<script>
+  // Auth guard
+  if (!Auth.requireAuth()) throw new Error('unauth');
+  renderNav();
+
+  // Update user analysis count in nav
+  const user = Auth.getUser();
+  if (user) {
+    document.getElementById('user-count').textContent = `${user.analysisCount || 0} analyses`;
+  }
+
+  // ── Language auto-detection ────────────────────────────────────────────────
+  const LANG_PATTERNS = {
+    python:     [/\bdef\s+\w+\s*\(/, /\bimport\s+\w/, /\bprint\s*\(/, /:\s*$/m, /\belif\b/],
+    typescript: [/:\s*(string|number|boolean|void|any)\b/, /interface\s+\w+/, /type\s+\w+\s*=/, /as\s+\w+/],
+    java:       [/public\s+(class|static|void)/, /System\.out\./, /\bimport\s+java\./, /@Override/],
+    go:         [/\bfunc\s+\w+/, /\bpackage\s+\w+/, /:=\s/, /\bfmt\./],
+    rust:       [/\bfn\s+\w+/, /\blet\s+mut\b/, /\bimpl\b/, /println!\(/],
+    cpp:        [/#include\s*</, /std::/, /cout\s*<</, /\bvoid\s+main\s*\(/],
+  };
+  const LANG_ICONS = { python:'🐍',typescript:'🔷',java:'☕',go:'🐹',rust:'🦀',cpp:'⚙️',javascript:'🟨' };
+  let _langTimer;
+
+  function detectLanguage(code) {
+    for (const [lang, patterns] of Object.entries(LANG_PATTERNS)) {
+      if (patterns.filter(p => p.test(code)).length >= 2) return lang;
+    }
+    return 'javascript';
+  }
+
+  function showLangHint(detected) {
+    hideLangHint();
+    const hint = document.createElement('div');
+    hint.id = 'lang-hint';
+    hint.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 14px;border-radius:var(--radius-sm);font-size:0.82rem;background:rgba(99,102,241,0.12);border:1px solid rgba(99,102,241,0.35);margin-top:8px;animation:fadeSlideIn 0.25s ease';
+    hint.innerHTML = `
+      <span>${LANG_ICONS[detected] || ''} Looks like <strong>${detected}</strong> — switch language?</span>
+      <div style="display:flex;gap:8px">
+        <button onclick="switchLang('${detected}')" style="padding:4px 12px;border-radius:6px;background:var(--primary);color:#fff;border:none;cursor:pointer;font-size:0.8rem;font-weight:600">Switch</button>
+        <button onclick="hideLangHint()" style="padding:4px 10px;border-radius:6px;background:none;color:var(--text-muted);border:1px solid var(--border2);cursor:pointer;font-size:0.8rem">✕</button>
+      </div>`;
+    document.querySelector('.editor-container').after(hint);
+  }
+
+  function hideLangHint() { document.getElementById('lang-hint')?.remove(); }
+
+  function switchLang(lang) {
+    document.getElementById('lang-select').value = lang;
+    hideLangHint();
+    toast(`Switched to ${lang}`, 'success');
+  }
+
+  // Char counter + paste detection
+  function updateCharCount() {
+    const code = document.getElementById('code-input').value;
+    const len = code.length;
+    const el = document.getElementById('char-count');
+    el.textContent = `${len.toLocaleString()} / 50,000 chars`;
+    el.style.color = len > 45000 ? 'var(--warn)' : len > 49000 ? 'var(--danger)' : 'var(--text-muted)';
+    clearTimeout(_langTimer);
+    if (len > 60) {
+      _langTimer = setTimeout(() => {
+        const detected = detectLanguage(code);
+        const selected = document.getElementById('lang-select').value;
+        if (detected !== selected) showLangHint(detected); else hideLangHint();
+      }, 500);
+    } else hideLangHint();
+  }
+
+  function clearEditor() {
+    document.getElementById('code-input').value = '';
+    updateCharCount();
+    hideLangHint();
+  }
+
+  // Tab key inserts 2 spaces
+  function handleTab(e) {
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      const ta = e.target;
+      const start = ta.selectionStart, end = ta.selectionEnd;
+      ta.value = ta.value.slice(0, start) + '  ' + ta.value.slice(end);
+      ta.selectionStart = ta.selectionEnd = start + 2;
+      updateCharCount();
+    }
+  }
+
+  // ── Main analysis function ─────────────────────────────────────────────────
+  async function runAnalysis() {
+    const title = document.getElementById('analysis-title').value.trim() || 'Untitled Analysis';
+    const language = document.getElementById('lang-select').value;
+    const sourceCode = document.getElementById('code-input').value.trim();
+
+    if (!sourceCode) { toast('Please paste some code first', 'warn'); return; }
+    if (sourceCode.length > 50000) { toast('Code exceeds 50,000 character limit', 'error'); return; }
+
+    const btn = document.getElementById('analyze-btn');
+    setLoading(btn, true, 'Analyzing with RAG + GPT-4o-mini...');
+    showLoading();
+
+    try {
+      const data = await gql(`
+        mutation Analyze($title: String!, $language: String!, $sourceCode: String!) {
+          analyzeCode(title: $title, language: $language, sourceCode: $sourceCode) {
+            id title language
+            issues { type severity line message suggestion }
+            metrics { linesOfCode cyclomaticComplexity maintainabilityIndex duplicateRatio overallScore }
+            summary status processingTimeMs createdAt
+          }
+        }
+      `, { title, language, sourceCode });
+
+      const analysis = data.analyzeCode;
+      renderResults(analysis);
+      toast('Analysis complete!', 'success');
+      
+      // Update count
+      const u = Auth.getUser();
+      if (u) { u.analysisCount = (u.analysisCount || 0) + 1; Auth.setSession(Auth.getToken(), u); }
+      document.getElementById('user-count').textContent = `${(u?.analysisCount || 0)} analyses`;
+
+    } catch (err) {
+      hideLoading();
+      toast(err.message || 'Analysis failed. Check your connection.', 'error');
+    } finally {
+      setLoading(btn, false, '⚡ Analyze Code');
+    }
+  }
+
+  // ── Loading state ──────────────────────────────────────────────────────────
+  function showLoading() {
+    document.getElementById('placeholder').style.display = 'none';
+    const rc = document.getElementById('results-content');
+    rc.style.display = 'flex';
+    rc.innerHTML = `
+      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;min-height:400px;color:var(--text-muted)">
+        <div class="spinner" style="width:36px;height:36px;border-width:3px"></div>
+        <p style="font-size:0.9rem">Running RAG pipeline + AI model analysis...</p>
+        <p style="font-size:0.8rem;color:var(--text-muted)">This usually takes 3–10 seconds</p>
+      </div>
+    `;
+  }
+
+  function hideLoading() {
+    document.getElementById('results-content').style.display = 'none';
+    document.getElementById('placeholder').style.display = 'flex';
+  }
+
+  // ── Render results ─────────────────────────────────────────────────────────
+  let currentIssues = [];
+  let currentFilter = 'all';
+
+  function renderResults(analysis) {
+    currentIssues = analysis.issues || [];
+    const { metrics, summary, processingTimeMs } = analysis;
+
+    const rc = document.getElementById('results-content');
+    rc.style.display = 'flex';
+    rc.innerHTML = ''; // clear
+
+    // Score ring
+    const score = metrics?.overallScore ?? 0;
+    const color = scoreColor(score);
+    const circumference = 2 * Math.PI * 36; // r=36
+    const dash = circumference - (score / 100) * circumference;
+
+    const scoreSection = document.createElement('div');
+    scoreSection.className = 'score-section fade-in';
+    scoreSection.innerHTML = `
+      <div class="score-ring">
+        <svg width="90" height="90" viewBox="0 0 90 90">
+          <circle class="bg-circle" cx="45" cy="45" r="36" style="stroke:rgba(255,255,255,0.06);fill:none;stroke-width:8"/>
+          <circle id="ring-fg" cx="45" cy="45" r="36" style="fill:none;stroke:${color};stroke-width:8;stroke-linecap:round;stroke-dasharray:${circumference};stroke-dashoffset:${circumference};transform:rotate(-90deg);transform-origin:50% 50%;transition:stroke-dashoffset 1.2s ease"/>
+        </svg>
+        <div class="score-num" style="color:${color}">${score}</div>
+      </div>
+      <div class="score-info">
+        <h3>${analysis.title}</h3>
+        <p style="color:var(--text-muted);font-size:0.8rem">${LANG_ICON[analysis.language] || ''} ${analysis.language} &nbsp;·&nbsp; ${currentIssues.length} issue${currentIssues.length !== 1 ? 's' : ''}</p>
+        <div class="processing-tag" style="margin-top:8px">⚡ ${processingTimeMs}ms &nbsp;·&nbsp; RAG + AI Analysis</div>
+      </div>
+    `;
+    rc.appendChild(scoreSection);
+    setTimeout(() => { document.getElementById('ring-fg').style.strokeDashoffset = dash; }, 100);
+
+    // Metrics row
+    const metricsEl = document.createElement('div');
+    metricsEl.className = 'metrics-row fade-in';
+    metricsEl.style.animationDelay = '0.1s';
+    metricsEl.innerHTML = `
+      <div class="metric-chip"><div class="val">${metrics?.linesOfCode ?? 0}</div><div class="lbl">Lines of Code</div></div>
+      <div class="metric-chip"><div class="val">${metrics?.cyclomaticComplexity ?? 0}</div><div class="lbl">Complexity</div></div>
+      <div class="metric-chip"><div class="val">${metrics?.maintainabilityIndex ?? 0}</div><div class="lbl">Maintainability</div></div>
+      <div class="metric-chip"><div class="val">${((metrics?.duplicateRatio ?? 0) * 100).toFixed(0)}%</div><div class="lbl">Duplicate</div></div>
+    `;
+    rc.appendChild(metricsEl);
+
+    // Summary
+    if (summary) {
+      const sumEl = document.createElement('div');
+      sumEl.className = 'summary-card fade-in';
+      sumEl.style.animationDelay = '0.15s';
+      sumEl.innerHTML = `<div class="label">AI Summary</div><p>${summary}</p>`;
+      rc.appendChild(sumEl);
+    }
+
+    // Issues header + filters
+    const issueHeader = document.createElement('div');
+    issueHeader.className = 'fade-in';
+    issueHeader.style.animationDelay = '0.2s';
+    issueHeader.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <span style="font-size:0.9rem;font-weight:600">Issues Found</span>
+        <span style="font-size:0.78rem;color:var(--text-muted)">${currentIssues.length} total</span>
+      </div>
+      <div class="filters" id="issue-filters">
+        <button class="filter-btn active" onclick="filterIssues('all')">All (${currentIssues.length})</button>
+        ${buildFilterBtns()}
+      </div>
+    `;
+    rc.appendChild(issueHeader);
+
+    // Fix All Issues button
+    if (currentIssues.length > 0) {
+      const fixEl = document.createElement('div');
+      fixEl.className = 'fade-in';
+      fixEl.style.animationDelay = '0.22s';
+      fixEl.innerHTML = `
+        <button class="fix-btn" id="fix-btn" onclick="runFixCode('${analysis.id}', ${score})">
+          ✨ Fix All Issues
+        </button>
+      `;
+      rc.appendChild(fixEl);
+    }
+
+    // Issue list
+    const listEl = document.createElement('div');
+    listEl.id = 'issue-list';
+    listEl.className = 'issues-list fade-in';
+    listEl.style.animationDelay = '0.25s';
+    rc.appendChild(listEl);
+
+    renderIssueList(currentIssues);
+  }
+
+  function buildFilterBtns() {
+    const counts = {};
+    currentIssues.forEach(i => { counts[i.severity] = (counts[i.severity] || 0) + 1; });
+    const order = ['critical','high','medium','low','info'];
+    return order.filter(s => counts[s]).map(s =>
+      `<button class="filter-btn" onclick="filterIssues('${s}')">${s} (${counts[s]})</button>`
+    ).join('');
+  }
+
+  function filterIssues(severity) {
+    currentFilter = severity;
+    document.querySelectorAll('.filter-btn').forEach(b => {
+      b.classList.toggle('active', b.textContent.toLowerCase().startsWith(severity === 'all' ? 'all' : severity));
+    });
+    const filtered = severity === 'all' ? currentIssues : currentIssues.filter(i => i.severity === severity);
+    renderIssueList(filtered);
+  }
+
+  function renderIssueList(issues) {
+    const list = document.getElementById('issue-list');
+    if (!list) return;
+    if (issues.length === 0) {
+      list.innerHTML = `<div style="padding:24px;text-align:center;color:var(--text-muted);font-size:0.85rem">No issues found for this filter. 🎉</div>`;
+      return;
+    }
+    list.innerHTML = issues.map((issue, idx) => {
+      const color = SEVERITY_COLOR[issue.severity] || '#6366f1';
+      return `
+        <div class="issue-card" style="border-left-color:${color};animation-delay:${idx * 0.05}s" onclick="toggleSuggestion(${idx})">
+          <div class="issue-top">
+            <span class="sev-badge" style="background:${color}20;color:${color}">${issue.severity.toUpperCase()}</span>
+            <span class="type-badge">${TYPE_ICON[issue.type] || '•'} ${issue.type}</span>
+            ${issue.line ? `<span class="line-badge">line ${issue.line}</span>` : ''}
+          </div>
+          <div class="issue-msg">${issue.message}</div>
+          ${issue.suggestion ? `
+            <button class="suggestion-toggle" id="stoggle-${idx}">▸ Show fix suggestion</button>
+            <div class="issue-suggestion" id="sug-${idx}">💡 ${issue.suggestion}</div>
+          ` : ''}
+        </div>
+      `;
+    }).join('');
+  }
+
+  function toggleSuggestion(idx) {
+    const sug = document.getElementById(`sug-${idx}`);
+    const btn = document.getElementById(`stoggle-${idx}`);
+    if (!sug) return;
+    const isOpen = sug.classList.toggle('open');
+    if (btn) btn.textContent = isOpen ? '▾ Hide fix suggestion' : '▸ Show fix suggestion';
+  }
+
+  // ── Fix All Issues ─────────────────────────────────────────────────────────
+  let lastAnalysisId = null;
+
+  function storeAnalysisId(id) { lastAnalysisId = id; }
+
+  async function runFixCode(analysisId, currentScore) {
+    // Guard: stop over-fixing already-decent code (LLM regresses score on 2nd pass)
+    // Test confirmed: 50 → fix → 74 (+24pts ✅) but 74 → fix → 59 (-15pts ❌)
+    if (currentScore >= 70) {
+      toast(`Score ${currentScore}/100 — good code! Further fixes may regress quality. Review remaining suggestions manually.`, 'success');
+      return;
+    }
+    const btn = document.getElementById('fix-btn');
+    setLoading(btn, true, 'Fixing & validating quality...');
+    try {
+      const data = await gql(`
+        mutation Fix($id: ID!) {
+          fixCode(analysisId: $id) { fixedCode summary processingTimeMs }
+        }
+      `, { id: analysisId });
+      showFixedCode(data.fixCode);
+    } catch (err) {
+      toast(err.message || 'Fix failed. Try again.', 'error');
+    } finally {
+      setLoading(btn, false, '✨ Fix All Issues');
+    }
+  }
+
+  function showFixedCode({ fixedCode, summary, processingTimeMs }) {
+    const existing = document.getElementById('fix-modal');
+    if (existing) existing.remove();
+
+    const modal = document.createElement('div');
+    modal.id = 'fix-modal';
+    modal.className = 'fixed-code-modal';
+    modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+    modal.innerHTML = `
+      <div class="fixed-code-box">
+        <div class="fixed-code-header">
+          <div>
+            <h3 style="font-size:1rem;font-weight:600">✨ Fixed Code</h3>
+            <p style="font-size:0.78rem;color:var(--text-muted);margin-top:3px">${summary} &nbsp;·&nbsp; ⚡ ${processingTimeMs}ms</p>
+          </div>
+          <button onclick="document.getElementById('fix-modal').remove()" style="background:none;border:none;color:var(--text-muted);font-size:1.3rem;cursor:pointer;padding:4px 8px;border-radius:6px" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background='none'">✕</button>
+        </div>
+        <pre class="fixed-code-pre" id="fixed-code-content">${escapeHtml(fixedCode)}</pre>
+        <div class="fixed-code-footer">
+          <button onclick="applyFixToEditor()" class="btn btn-ghost btn-sm">↩ Apply to Editor</button>
+          <button onclick="copyFixedCode()" class="btn btn-primary btn-sm">📋 Copy Code</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+    window._fixedCode = fixedCode;
+  }
+
+  function copyFixedCode() {
+    navigator.clipboard.writeText(window._fixedCode || '');
+    toast('Fixed code copied to clipboard!', 'success');
+  }
+
+  function applyFixToEditor() {
+    if (!window._fixedCode) return;
+    document.getElementById('code-input').value = window._fixedCode;
+    updateCharCount();
+    document.getElementById('fix-modal').remove();
+    toast('Fixed code applied to editor! Click Analyze Code to verify.', 'success');
+  }
+
+  function escapeHtml(str) {
+    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+</script>
+</body>
+</html>
