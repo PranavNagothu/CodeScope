@@ -438,10 +438,10 @@
   function storeAnalysisId(id) { lastAnalysisId = id; }
 
   async function runFixCode(analysisId, currentScore) {
-    // Guard: stop over-fixing already-decent code (LLM regresses score on 2nd pass)
-    // Test confirmed: 50 → fix → 74 (+24pts ✅) but 74 → fix → 59 (-15pts ❌)
-    if (currentScore >= 70) {
-      toast(`Score ${currentScore}/100 — good code! Further fixes may regress quality. Review remaining suggestions manually.`, 'success');
+    // Only block if the code is already excellent — the server-side validation
+    // loop handles the regression risk for lower scores internally.
+    if (currentScore >= 85) {
+      toast(`Score ${currentScore}/100 — code is already in great shape. Only minor style notes remain.`, 'success');
       return;
     }
     const btn = document.getElementById('fix-btn');
