@@ -1,15 +1,12 @@
-// ─── API Configuration ───────────────────────────────────────────────────────
 const CONFIG = {
   API_URL:
-    // file://, localhost, or 127.0.0.1 → all hit the local backend
     window.location.hostname === '' ||
     window.location.hostname === 'localhost' ||
     window.location.hostname === '127.0.0.1'
       ? 'http://localhost:4000/graphql'
-      : 'https://YOUR_RENDER_URL.onrender.com/graphql', // ← replace after deploy
+      : 'https://codescope-e4rj.onrender.com/graphql',
 };
 
-// ─── GraphQL Client ──────────────────────────────────────────────────────────
 async function gql(query, variables = {}) {
   const token = Auth.getToken();
   const headers = { 'Content-Type': 'application/json' };
@@ -24,8 +21,8 @@ async function gql(query, variables = {}) {
     });
   } catch (networkErr) {
     throw new Error(
-      `Cannot reach the backend server at ${CONFIG.API_URL}. ` +
-      `Make sure the Node.js server is running (npm run dev) and MongoDB is connected.`
+      `Cannot reach the backend at ${CONFIG.API_URL}. ` +
+      `Make sure the server is running.`
     );
   }
 
@@ -34,7 +31,6 @@ async function gql(query, variables = {}) {
   return json.data;
 }
 
-// ─── Auth Helpers ─────────────────────────────────────────────────────────────
 const Auth = {
   getToken: () => localStorage.getItem('cs_token'),
   getUser: () => JSON.parse(localStorage.getItem('cs_user') || 'null'),
@@ -56,7 +52,6 @@ const Auth = {
   },
 };
 
-// ─── Toast Notifications ─────────────────────────────────────────────────────
 function toast(message, type = 'info') {
   const colors = { info: '#6366f1', success: '#10b981', error: '#ef4444', warn: '#f59e0b' };
   const el = document.createElement('div');
@@ -75,7 +70,6 @@ function toast(message, type = 'info') {
   }, 3500);
 }
 
-// ─── Loading Button Helper ────────────────────────────────────────────────────
 function setLoading(btn, loading, text = '') {
   if (loading) {
     btn.dataset.originalText = btn.textContent;
@@ -87,7 +81,6 @@ function setLoading(btn, loading, text = '') {
   }
 }
 
-// ─── Severity + Type Helpers ─────────────────────────────────────────────────
 const SEVERITY_COLOR = {
   critical: '#ef4444', high: '#f97316', medium: '#f59e0b', low: '#3b82f6', info: '#6366f1',
 };
@@ -98,7 +91,6 @@ const LANG_ICON = {
   javascript: '🟨', typescript: '🔷', python: '🐍', java: '☕', go: '🐹', rust: '🦀', cpp: '⚙️',
 };
 
-// ─── Score Color ─────────────────────────────────────────────────────────────
 function scoreColor(score) {
   if (score >= 80) return '#10b981';
   if (score >= 60) return '#f59e0b';
@@ -106,14 +98,12 @@ function scoreColor(score) {
   return '#ef4444';
 }
 
-// ─── Format Date ─────────────────────────────────────────────────────────────
 function formatDate(iso) {
   return new Date(iso).toLocaleDateString('en-US', {
     month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit',
   });
 }
 
-// ─── Render Nav User ─────────────────────────────────────────────────────────
 function renderNav() {
   const user = Auth.getUser();
   const navUser = document.getElementById('nav-user');
